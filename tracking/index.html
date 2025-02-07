@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Bus Tracker</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBnpuJ2R5AyBE4rHatTKKwwHcc9Y2u1Ato"></script>
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBnpuJ2R5AyBE4rHatTKKwwHcc9Y2u1Ato",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "bus-tracking-701391",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "1:857597036355:web:4bc90621309e63416791f6"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let map, marker;
+
+        // Initialize Google Maps
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 20.5937, lng: 78.9629 }, // Default location (India)
+                zoom: 5
+            });
+        }
+
+        // Function to track bus
+        function trackBus() {
+            const busNumber = document.getElementById("busNumber").value;
+            if (!busNumber) {
+                alert("Enter bus number");
+                return;
+            }
+
+            const docRef = doc(db, "buses", busNumber);
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    updateMap(data.lat, data.lng);
+                } else {
+                    alert("Bus location not found!");
+                }
+            });
+        }
+
+        // Update Google Map with new location
+        function updateMap(lat, lng) {
+            const location = { lat, lng };
+            map.setCenter(location);
+            map.setZoom(15);
+
+            if (marker) marker.setMap(null);
+            marker = new google.maps.Marker({ position: location, map });
+        }
+
+        // Function to start tracking driver location
+        function startTracking() {
+            const busNumber = document.getElementById("driverBusNumber").value;
+            if (!busNumber) {
+                alert("Enter bus number");
+                return;
+            }
+
+            function updateLocation(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+
+                setDoc(doc(db, "buses", busNumber), { lat, lng }, { merge: true })
+                    .then(() => console.log("Location updated"))
+                    .catch(error => console.error("Error updating location:", error));
+            }
+
+            if (navigator.geolocation) {
+                setInterval(() => {
+                    navigator.geolocation.getCurrentPosition(updateLocation);
+                }, 5000);
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        // Function to toggle between User Mode & Driver Mode
+        function switchMode(mode) {
+            document.getElementById("userMode").style.display = mode === 'user' ? "block" : "none";
+            document.getElementById("driverMode").style.display = mode === 'driver' ? "block" : "none";
+        }
+
+    </script>
+</head>
+<body onload="initMap()">
+
+    <h2>College Bus Tracker</h2>
+
+    <button onclick="switchMode('user')">User Mode</button>
+    <button onclick="switchMode('driver')">Driver Mode</button>
+
+    <!-- User Mode: Track Bus -->
+    <div id="userMode" style="display: block;">
+        <h3>Track Your Bus</h3>
+        <input type="text" id="busNumber" placeholder="Enter Bus Number">
+        <button onclick="trackBus()">Track</button>
+        <div id="map" style="width:100%; height:400px;"></div>
+    </div>
+
+    <!-- Driver Mode: Update Location -->
+    <div id="driverMode" style="display: none;">
+        <h3>Driver GPS Tracker</h3>
+        <input type="text" id="driverBusNumber" placeholder="Enter Bus Number">
+        <button onclick="startTracking()">Start Tracking</button>
+    </div>
+
+</body>
+</html>
